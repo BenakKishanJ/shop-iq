@@ -189,7 +189,7 @@ export default function Governance() {
       {loading ? (
         <p className="text-fluid-xs text-muted-foreground">Loading the audit trail…</p>
       ) : (
-        <div className="flex flex-col gap-3 overflow-y-auto pb-6">
+        <div className="flex flex-col gap-3 overflow-y-auto px-2 pt-2 pb-8">
           {actions.map((a) => (
             <ActionCard key={a.action_id} action={a} onResolve={onResolve} />
           ))}

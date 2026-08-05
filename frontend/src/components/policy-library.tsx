@@ -201,7 +201,7 @@ export default function PolicyLibrary() {
       {loading ? (
         <p className="text-fluid-xs text-muted-foreground">Loading policies…</p>
       ) : (
-        <div className="flex flex-col gap-4 overflow-y-auto pb-6">
+        <div className="flex flex-col gap-4 overflow-y-auto px-2 pt-2 pb-8">
           {docs.map((doc) => (
             <PolicyCard key={doc.doc_id} doc={doc} />
           ))}
