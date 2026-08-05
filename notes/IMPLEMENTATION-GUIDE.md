@@ -101,13 +101,18 @@ Design decisions worth naming:
 | `backend/search_policies.py` | retrieval | question → embed → `<=>` → top-k chunks |
 | `backend/llm.py` | LLM client | chat completions + retry/backoff; Day 5 extends with tools |
 | `backend/rag_answer.py` | RAG | retrieve → ground → cited answer |
-| `backend/mcp_server.py` | tools | FastMCP server, 5 tools |
+| `backend/governance.py` | governance | `action_log` on every call; approve/reject cascade; Telegram-or-stub notify |
+| `backend/mcp_server.py` | tools | FastMCP server, **10 tools** (all audit-logged) |
 | `backend/mcp_test_client.py` | tools | SDK client harness (the agent-loop pattern) |
 | `backend/mcp_raw_client.py` | tools | hand-written JSON-RPC client to show the wire |
 | `backend/llm.py` | LLM client | chat completions + tools/tool_calls + retry/backoff |
-| `backend/agent.py` | orchestration | the reason–act loop; MCP-client-driven |
-| `backend/main.py` | API | FastAPI `/api/chat` + CORS + threadpool offload |
+| `backend/agent.py` | orchestration | the reason–act loop; MCP-client-driven; governance-aware prompt |
+| `backend/main.py` | API | FastAPI `/api/chat`, `/api/policies` (GET/POST), `/api/actions` (GET/resolve) + CORS + threadpool offload |
+| `frontend/src/components/shell.tsx` | UI | tabbed shell — Chat / Policies / Governance |
+| `frontend/src/components/policy-library.tsx` | UI | policy cards + Add-policy form (dynamic ingest) |
+| `frontend/src/components/governance.tsx` | UI | audit trail cards + Approve/Reject buttons |
 | `frontend/src/components/chat.tsx` | UI | Claude-style shadcn chat (badges, chips, selector) |
+| `frontend/src/lib/api.ts` | UI | typed REST client: policies + actions (1:1 with endpoints) |
 | `frontend/src/lib/parse-citations.ts` | UI | splits answers on `[doc :: section]` |
 
 **The dependency rule:** nothing imports `llm`/`mcp`/`rag` except downward.
@@ -136,8 +141,10 @@ clean → upsert → refresh stock_view          chunk by section
                        ▼
    search_policies.py  ──┐
    rag_answer.py         ├─ both feed the Day 4 MCP server
-   mcp_server.py         ──┘  (search_policies, check_stock, sales_trend,
-                                flag_reorder, notify_channel)
+   mcp_server.py         ──┘  (10 tools: search_policies, check_stock,
+                                sales_trend, top_sellers, search_products,
+                                flag_reorder, notify_channel, list_actions,
+                                approve_action, list_policies — all audit-logged)
 ```
 
 Structured data answers "what's in stock / how are sales?"
@@ -156,11 +163,16 @@ user: "We're out of the white hanging heart t-light holder, order more."
         │
         ├─ tools/call search_products("white hanging heart")  → SKU 85123A
         ├─ tools/call top_sellers(5)                          → it IS a top seller
-        ├─ tools/call flag_reorder("85123A", 500, "...")      → reorder flag
+        ├─ tools/call flag_reorder("85123A", 500, "...")      → over threshold →
+        │                                                       pending_approval
+        ├─ tools/call approve_action(2, True)                 → manager signs off
         ├─ tools/call notify_channel("Reorder flag #3 ...")   → message queued
         │
         ▼  results fed back as role:tool messages → model writes final answer
-   "Reorder flag created for SKU 85123A ... The team has been notified."
+   "Reorder flag approved for SKU 85123A ... The team has been notified."
+
+   Every one of those tool calls is in action_log; the Governance tab shows
+   the trail and Approve/Reject buttons for pending items.
         │
         ▼  FastAPI /api/chat → Next.js UI: tool badges + citation chips
 ```
@@ -187,6 +199,10 @@ Electronics]`, and simple stock lookups — all through the MCP wire.
 | Tool results as formatted strings | text content blocks | the AI reasons over text, not tuples |
 | Blocking HTTP inside async FastAPI | threadpool offload | sync `requests` would freeze the event loop |
 | Agent toolset must cover real questions | added `top_sellers`, `search_products` | no discovery tool → agent stalls on "top seller?"/"by description" |
+| Actions logged before they run | `action_log` audit row + `action_id` FK on the flag | the trail is complete and links ops tables to their audit row |
+| Large reorders gated | `APPROVAL_THRESHOLD=300` → `pending_approval` | material actions need a human; small ones auto-run but stay logged |
+| `approve_action` exposed to the agent | yes, with prompt-level policy | capability vs. policy: model can carry out the manager's decision, not self-approve |
+| Embeddings on `POST /api/policies` | threadpool offload | blocking HTTP must never sit on the async loop (same as `/api/chat`) |
 | Free-tier quota (50 req/day) | retries + `Retry-After` | hard daily caps need credits; can't be retried away |
 
 ---
@@ -243,7 +259,7 @@ runs all 5 tools against real data.
 | Day | Work | Reuses |
 |---|---|---|
 | 5 ✅ | Agent loop (tool calling) + Next.js/shadcn chat UI with badges, citation chips, model selector | `llm.py` (tools), `mcp_test_client.py` pattern, FastAPI |
-| 6 | Governance: `action_log` rows on every tool call, approval threshold, Telegram notify | `action_log`, `reorder_flags`, `telegram_messages` tables |
+| 6 ✅ | Governance: `action_log` rows on every tool call, approval threshold, Telegram notify; Policies + Governance UI tabs | `action_log`, `reorder_flags`, `telegram_messages` tables |
 | 7 | Dockerize backend, deploy (Render/Railway), Vercel frontend, demo script, mock interview | everything |
 
 The whole point of the architecture: **every later day is a thin wrapper on top

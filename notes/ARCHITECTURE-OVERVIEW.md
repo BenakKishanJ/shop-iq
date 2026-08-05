@@ -148,7 +148,7 @@ After any load we print table counts and sanity-check them against expectations.
 | Day | What gets added | Where it connects |
 |---|---|---|
 | **3 — RAG** | `search_policies` results → LLM prompt → cited answer + grounding threshold | Sits on top of `search_policies.py` |
-| **4 — MCP** | Python MCP server exposing `check_stock`, `sales_trend`, `search_policies`, `flag_reorder` as tools | Wraps the same DB queries; adds the agent-accessible surface |
+| **4 — MCP** | Python MCP server exposing 10 tools — `check_stock`, `sales_trend`, `search_policies`, `flag_reorder`, `notify_channel`, `top_sellers`, `search_products`, `list_actions`, `approve_action`, `list_policies` — all audit-logged | Wraps the same DB queries; adds the agent-accessible surface + governance |
 | **5 — Orchestration** | Next.js API route running the tool-call loop against OpenRouter | Connects to the MCP server; uses the LLM for the first time |
 | **6 — Governance** | `action_log` rows, guardrails, Telegram | Uses the governance tables we already created |
 | **7 — Deploy** | Dockerize backend, Vercel frontend, demo script | The whole thing ships |

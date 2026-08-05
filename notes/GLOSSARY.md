@@ -83,5 +83,15 @@ Cumulative dictionary. Append as new terms appear. Keep definitions one line.
 - **Citation chip** — a parsed `[doc title :: section]` rendered as a clickable-looking badge.
 - **Claude palette** — warm cream/stone neutrals (`#faf9f5`) with a single coral accent (`#d97757`); no blue cast.
 
+## Day 6
+- **Governance** — the guardrails around an agent that can act: what it's allowed to do automatically vs. what needs a human.
+- **Audit trail** — an append-only record of everything the agent did (`action_log`), reads and writes, so behavior can be replayed and reviewed.
+- **Approval matrix / materiality threshold** — actions under a size/risk limit auto-run; over it they wait for human sign-off. Day 6: `APPROVAL_THRESHOLD = 300` units on `flag_reorder`.
+- **`pending_approval`** — the state an over-threshold action sits in until a human approves or rejects it.
+- **`resolved_by`** — who made the approve/reject decision (e.g. `store-manager`); makes the audit trail attribution-complete.
+- **Integration stub / fallback** — a fake-but-same-contract implementation (DB `telegram_messages` row) standing in for a real service (Telegram), so the demo runs with no credentials.
+- **Policy self-service** — letting a non-developer add a ground-truth document from the UI; it is chunked/embedded/searchable with no code change.
+- **Capability vs. policy** — the model *can* call a tool (e.g. `approve_action`), but the system prompt defines when it *should*; real enforcement lives server-side.
+
 ## Future days
 *(append as we learn)*

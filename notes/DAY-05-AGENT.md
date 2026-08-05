@@ -325,6 +325,11 @@ From `tools/list`, converted 1:1 by `to_openai_tool`:
 | `flag_reorder` | persist a reorder request (governance) | `sku, suggested_quantity, reasoning` |
 | `notify_channel` | message the ops channel (Telegram stub) | `message: str, chat_id = "store-ops"` |
 
+> **Day 6 update:** the catalog is now **10 tools**. `flag_reorder` gained the
+> `APPROVAL_THRESHOLD` branch (over-threshold → `pending_approval`), and three
+> tools were added: `list_actions`, `approve_action`, `list_policies`. See
+> `DAY-06-GOVERNANCE.md` for the full governance deep-dive.
+
 The two Day 5 additions exist because the agent *stalled* without them (§9).
 
 ---

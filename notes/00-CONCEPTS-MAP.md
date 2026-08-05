@@ -70,9 +70,15 @@ Every concept, which day teaches it, where it lives in code, and which notes cov
 - Day 3 citations + Day 4 MCP tools now meet in one UI
 
 ## Day 6 — Governance
-*(placeholder)*
-- Guardrails & threshold approval; ActionLog; audit trail
-- Dashboard & log views; Telegram notify + inline approve/reject
+- **Audit-first**: every tool call (reads AND writes) logged to `action_log` — the trail is the ground truth of "what the agent did" | `backend/governance.py`
+- **Approval matrix**: `flag_reorder` over `APPROVAL_THRESHOLD` (300) → `pending_approval`, not executed; human signs off via `approve_action`/`/resolve` | `backend/mcp_server.py`
+- `resolve_action` cascades status to the linked `reorder_flags` row; records who decided (`resolved_by`)
+- Telegram integration with a **stub fallback** — same contract either way, demo runs with no credentials
+- Agent learns the rules from its system prompt ("surface AWAITS APPROVAL, use `list_actions`") — capability vs. policy | `backend/agent.py`
+- Policy self-service: `POST /api/policies` chunks + embeds + upserts a new doc via `parse_sections()` — searchable in the same request | `backend/main.py`
+- MCP catalog grew 7 → **10 tools**: `list_actions`, `approve_action`, `list_policies` added
+- Frontend: tabbed shell — Chat / Policies (add + sections) / Governance (audit trail + approve/reject) | `frontend/src/components/shell.tsx`
+- Chat completions and embeddings have **separate** rate limits — policy add kept working while chat was throttled
 
 ## Day 7 — Agentic Planning, Deployment & Interview
 *(placeholder)*
