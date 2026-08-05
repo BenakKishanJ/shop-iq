@@ -8,10 +8,33 @@ Usage:
     python ingest_policies.py            # ingest the seed documents
 """
 from typing import Iterable
+import re
 import requests
 from db import get_conn
 from embeddings import embed_texts
 from policy_seed import SEED_DOCS
+
+
+def parse_sections(content: str) -> list[tuple[str, str]]:
+    """Parse '## Heading\\nbody' blocks into (section, body) pairs.
+
+    Text before the first heading becomes an 'Introduction' section; a
+    document with no headings becomes a single Introduction section. This is
+    what lets the UI add a new policy as free-form text.
+    """
+    content = content.strip()
+    if not content:
+        return []
+    parts = re.split(r"(?m)^##\s+", content)
+    if len(parts) == 1:
+        return [("Introduction", content)]
+    sections = []
+    if parts[0].strip():
+        sections.append(("Introduction", parts[0].strip()))
+    for part in parts[1:]:
+        heading, _, body = part.partition("\n")
+        sections.append((heading.strip(), body.strip()))
+    return sections
 
 
 def chunk_document(title: str, sections: list[tuple[str, str]]) -> list[dict]:

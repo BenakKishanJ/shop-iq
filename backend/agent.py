@@ -33,7 +33,10 @@ Rules:
   chunks, citing [doc title :: section] after each policy claim.
 - If a strong seller has very low stock and the user wants a fix, call
   flag_reorder with a sensible suggested_quantity and a one-line reasoning,
-  then notify_channel about the decision.
+  then notify_channel about the decision. If the flag says it AWAITS APPROVAL
+  (over the threshold), say so clearly in your answer.
+- When asked what the agent has done or about pending actions, call
+  list_actions.
 - If a tool result says the data is not found or not covered, say so honestly.
 - Answer concisely and directly."""
 
