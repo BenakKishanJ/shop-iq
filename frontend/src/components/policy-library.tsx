@@ -37,7 +37,7 @@ function Section({ section, content }: { section: string; content: string }) {
 
 function PolicyCard({ doc }: { doc: PolicyDoc }) {
   return (
-    <Card className="rounded-2xl border-border bg-card/70 p-4 shadow-sm backdrop-blur-xl">
+    <Card className="shrink-0 rounded-2xl border-border bg-card/70 p-4 shadow-sm backdrop-blur-xl">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
@@ -136,7 +136,7 @@ export default function PolicyLibrary() {
       </div>
 
       {showForm && (
-        <Card className="animate-fade-up mb-5 rounded-2xl border-border bg-card/70 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <Card className="animate-fade-up mb-5 shrink-0 rounded-2xl border-border bg-card/70 p-4 shadow-sm backdrop-blur-xl md:p-5">
           <div className="flex items-center gap-2 text-fluid-sm font-medium text-foreground">
             <FilePlus2 className="size-4 text-brand" />
             Add a policy document

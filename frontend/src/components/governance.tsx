@@ -41,7 +41,7 @@ function ActionCard({
   const isPending = action.status === "pending_approval";
 
   return (
-    <Card className="rounded-2xl border-border bg-card/70 p-4 shadow-sm backdrop-blur-xl">
+    <Card className="shrink-0 rounded-2xl border-border bg-card/70 p-4 shadow-sm backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-fluid-xs text-muted-foreground">
