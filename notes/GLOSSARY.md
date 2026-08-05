@@ -81,7 +81,7 @@ Cumulative dictionary. Append as new terms appear. Keep definitions one line.
 - **Free-tier daily quota** — hard per-day cap (OpenRouter: 50 free requests/day; credits raise it).
 - **shadcn/ui** — copy-paste React components styled with Tailwind CSS variables.
 - **Citation chip** — a parsed `[doc title :: section]` rendered as a clickable-looking badge.
-- **Monochrome theme** — only whites/blacks/greys; chromatic design tokens zeroed out.
+- **Claude palette** — warm cream/stone neutrals (`#faf9f5`) with a single coral accent (`#d97757`); no blue cast.
 
 ## Future days
 *(append as we learn)*

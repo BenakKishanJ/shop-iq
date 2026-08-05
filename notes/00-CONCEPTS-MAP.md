@@ -65,7 +65,7 @@ Every concept, which day teaches it, where it lives in code, and which notes cov
 - Toolset gaps discovered: added `top_sellers`, `search_products` — an agent can only do what its tools let it do | `backend/mcp_server.py`
 - FastAPI `/api/chat` + CORS; **threadpool offload** — blocking HTTP in async code freezes the API | `backend/main.py`
 - Free-tier reality: OpenRouter caps at 50 free req/day; retries + `Retry-After`, but hard caps need credits
-- Next.js 16 + shadcn/ui chat UI; monochrome (zero chromatic tokens, inline gradient styles) | `frontend/src/components/chat.tsx`
+- Next.js 16 + shadcn/ui chat UI; Claude palette (warm creams + coral `#d97757` brand) | `frontend/src/components/chat.tsx`
 - Citation chips (`parseCitations` regex), tool-use badges, model selector, thinking dots
 - Day 3 citations + Day 4 MCP tools now meet in one UI
 

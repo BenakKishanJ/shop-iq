@@ -18,7 +18,7 @@ note is the *build* story.
 | Retrieval | **pgvector `<=>` cosine** on `document_chunks` | semantic search in pure SQL |
 | Tools layer | **MCP Python SDK (`FastMCP`), pinned `mcp==1.29.0`** | standard AI↔tool wire |
 | Backend API | **FastAPI + uvicorn** | `/api/chat` + CORS + threadpool |
-| Frontend | **Next.js 16 + shadcn/ui (Tailwind v4)** | monochrome chat UI |
+| Frontend | **Next.js 16 + shadcn/ui (Tailwind v4)** | Claude-style chat UI (cream + coral) |
 | Config | **python-dotenv** + `.env` | keys never in code |
 
 Environment: Python 3.14 venv at `.venv/`, Node v22, Docker 29. The only heavy
@@ -107,7 +107,7 @@ Design decisions worth naming:
 | `backend/llm.py` | LLM client | chat completions + tools/tool_calls + retry/backoff |
 | `backend/agent.py` | orchestration | the reason–act loop; MCP-client-driven |
 | `backend/main.py` | API | FastAPI `/api/chat` + CORS + threadpool offload |
-| `frontend/src/components/chat.tsx` | UI | monochrome shadcn chat (badges, chips, selector) |
+| `frontend/src/components/chat.tsx` | UI | Claude-style shadcn chat (badges, chips, selector) |
 | `frontend/src/lib/parse-citations.ts` | UI | splits answers on `[doc :: section]` |
 
 **The dependency rule:** nothing imports `llm`/`mcp`/`rag` except downward.
