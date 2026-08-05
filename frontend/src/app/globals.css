@@ -12,6 +12,12 @@
   --font-heading: var(--font-geist-mono);
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
+  --color-approve: var(--approve);
+  --color-approve-bg: var(--approve-bg);
+  --color-reject: var(--reject);
+  --color-reject-bg: var(--reject-bg);
+  --color-pending: var(--pending);
+  --color-pending-bg: var(--pending-bg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -77,6 +83,12 @@
   --radius: 0.625rem;
   --brand: #d97757;
   --brand-strong: #c7684a;
+  --approve: #4d6b53;
+  --approve-bg: #eef2ec;
+  --reject: #a34e3a;
+  --reject-bg: #f7ece7;
+  --pending: #c26a3b;
+  --pending-bg: #faeae2;
   --sidebar: #f4f1ea;
   --sidebar-foreground: #262624;
   --sidebar-primary: #262624;
@@ -113,6 +125,12 @@
   --chart-5: #35332f;
   --brand: #d97757;
   --brand-strong: #e0815e;
+  --approve: #8fbf9a;
+  --approve-bg: #2a352c;
+  --reject: #e08f78;
+  --reject-bg: #3a2a26;
+  --pending: #e08a5f;
+  --pending-bg: #3a2d24;
   --sidebar: #2a2926;
   --sidebar-foreground: #f0eee6;
   --sidebar-primary: #f0eee6;
