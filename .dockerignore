@@ -1,14 +1,16 @@
-# Keep the backend build context small and clean.
+# Build context = repo root. Keep it small but INCLUDE frontend/ and data/
+# (the single image needs both the Next.js source and the retail dataset).
+
 .git
 .gitignore
 .venv
-node_modules
-.next
-frontend
+**/node_modules
+**/.next
+**/out
 notes
-data
 *.md
 __pycache__
 *.pyc
 .env
 .env.*
+!.env.example

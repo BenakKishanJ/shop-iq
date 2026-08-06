@@ -260,7 +260,7 @@ runs all 5 tools against real data.
 |---|---|---|
 | 5 ✅ | Agent loop (tool calling) + Next.js/shadcn chat UI with badges, citation chips, model selector | `llm.py` (tools), `mcp_test_client.py` pattern, FastAPI |
 | 6 ✅ | Governance: `action_log` rows on every tool call, approval threshold, Telegram notify; Policies + Governance UI tabs | `action_log`, `reorder_flags`, `telegram_messages` tables |
-| 7 | Dockerize backend, deploy (Render/Railway), Vercel frontend, demo script, mock interview | everything |
+| 7 | Deploy (Render/Railway) — one image with static frontend + backend + embedded PostgreSQL + RAG; demo script, mock interview | `backend/Dockerfile`, `docker-compose.yml`, `entrypoint.sh` |
 
 The whole point of the architecture: **every later day is a thin wrapper on top
 of the verified data layer** — the risky, novel parts (retrieval, grounding,

@@ -267,67 +267,113 @@ Port conflict `Bind for 0.0.0.0:5432 failed` → something already uses 5432. `d
 
 ---
 
-## 10. Dockerizing the ShopIQ Backend (Day 7)
+## 10. Dockerizing ShopIQ — one image, everything inside (Day 7)
 
-We don't just *run* a container — we now ship our own image. `backend/Dockerfile`
-bundles the FastAPI + MCP agent; `docker-compose.yml` wires it to a Postgres
-database. The image is **492 MB** (slim Python + the stack; no GPU, no browser).
+**The goal:** a single container that runs the whole product — statically
+exported frontend *and* FastAPI backend *and* PostgreSQL *and* the RAG
+knowledge base. Deploy = `docker run` one image. No separate frontend host, no
+DB service to wire up.
 
-### The Dockerfile (read it top to bottom)
-
-```dockerfile
-FROM python:3.14-slim                      # small base, pinned major.minor
-ENV PYTHONUNBUFFERED=1 ...                 # sane Python defaults for logs
-WORKDIR /app
-COPY requirements.txt .                    # deps first → layer caching
-RUN pip install -r requirements.txt        # fast rebuilds when code changes
-RUN addgroup --system app && adduser ...   # non-root runtime user
-USER app
-COPY backend/ /app/                        # the source (single concern)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-Design choices worth mentioning in an interview:
-
-- **Deps before code** — Docker layers are cached; changing a `.py` file
-  re-runs only the final `COPY`, not `pip install`.
-- **Non-root user** — the container needs no host privileges; it only talks to
-  Postgres and OpenRouter over the network.
-- **`--host 0.0.0.0`** — inside a container "localhost" is the container
-  itself; 0.0.0.0 makes uvicorn listen on all interfaces so the port
-  forward works.
-- **Build context = repo root** (the `-f backend/Dockerfile .` form) so the
-  image can `COPY requirements.txt` from one source of truth.
-
-### docker-compose.yml (two services, one concern each)
-
-- `db` — `pgvector/pgvector:pg16`, healthchecked with `pg_isready`, and
-  `schema.sql` auto-applied via `/docker-entrypoint-initdb.d/` on first boot.
-- `backend` — built from `backend/Dockerfile`, `depends_on: db: service_healthy`
-  (won't start until the DB is accepting connections), port `8000:8000`.
-- **Secrets** come from the repo-root `.env` via `${VAR:-default}` interpolation
-  — the compose file contains zero secrets. `POSTGRES_HOST: db` points at the
-  compose network's DB service, not `localhost`.
+The image is **~1.05 GB** (Python + Node build artifacts + PostgreSQL + the
+44 MB retail dataset), built from the repo root:
 
 ```bash
-docker compose up --build          # start the stack
-curl localhost:8000/api/health     # {"status":"ok","tools":[...10...]}
-docker compose down                # stop (volume keeps the data)
-docker compose down -v             # stop AND wipe the DB volume
+docker build -f backend/Dockerfile -t shopiq .
+docker run -d --name shopiq -p 8000:8000 --env-file .env \
+  -v shopiq-pgdata:/var/lib/postgresql/data shopiq
+# open http://localhost:8000   ← UI *and* /api from the same process
+```
+
+### How the frontend becomes static (the key trick)
+
+`next.config.ts` sets `output: "export"` → `next build` emits a pure static
+site (`frontend/out/`): plain HTML/CSS/JS with no server. The app is already
+all-client components, so nothing is lost. `backend/main.py` then mounts it:
+
+```python
+FRONTEND_DIST = os.getenv("FRONTEND_DIST", "../frontend/out")
+if os.path.isdir(FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True))
+```
+
+API routes are declared *before* the mount, so `/api/*` always wins. The UI's
+API base is now same-origin (`frontend/src/lib/api.ts`: `?? ""`), so the browser
+hits `/api/...` on the same port — no CORS in prod, one origin to reason about.
+Dev keeps the old split via a gitignored `frontend/.env.local`
+(`NEXT_PUBLIC_API_URL=http://localhost:8000`), which is *excluded from the
+Docker context* so it can never leak into the prod bundle (verified: zero
+`localhost:8000` occurrences in the served JS).
+
+### The multi-stage Dockerfile
+
+```dockerfile
+FROM node:22-alpine AS frontend-build   # stage 1: next build → /build/out
+FROM python:3.14-slim                   # stage 2: the real runtime
+RUN apt-get install -y postgresql libpq-dev postgresql-17-pgvector
+COPY backend/ /app/
+COPY --from=frontend-build /build/out /app/static
+COPY data/ /app/data/                   # the retail xlsx for one-shot seeding
+ENTRYPOINT ["/app/entrypoint.sh"]
+```
+
+Two non-obvious things that cost debugging time:
+
+- **pgvector must be installed too** — Debian's `postgresql` package has no
+  vector extension; `CREATE EXTENSION vector` fails without
+  `postgresql-17-pgvector`.
+- **`initdb` defaults to SQL_ASCII** in a locale-less slim image, and psycopg
+  then returns TEXT as `bytes` — the sales loader's str-keyed `sku_to_id`
+  lookups all miss and `order_items` silently loads **0 rows**. Fix: `initdb
+  --encoding=UTF8 --locale=C`. (Symptom that led here: `loaded: {...,
+  'order_items': 0, ...}` with no error.)
+
+### `entrypoint.sh` — boot order inside the container
+
+1. `initdb` the data dir if empty (once), then `pg_ctl start` (runs as the
+   `postgres` system user; postgres refuses to run as root).
+2. Create the DB, apply `schema.sql` (`ON_ERROR_STOP=1`).
+3. **Seed once** — guarded by `COUNT(*) = 0` checks so restarts are
+   idempotent: `ingest_policies.py` (RAG docs, 6 docs / 19 chunks) then
+   `load_sales.py` (4011 products / 19040 orders / 394389 items). Seed
+   failures are logged but don't kill the API.
+4. `exec uvicorn main:app --host 0.0.0.0 --port 8000`.
+
+### docker-compose.yml (single service)
+
+One service, one image, an embedded DB on `localhost`, data in the `pgdata`
+volume, secrets from `.env` via `${VAR:-default}` interpolation:
+
+```yaml
+services:
+  shopiq:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    ports: ["8000:8000"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      start_period: 60s   # first boot seeds the DB
 ```
 
 ### Verified (this session)
 
-Built the image and ran the stack manually (no compose plugin on this box):
+Built the image and ran it standalone (no compose plugin on this box):
 
 ```
-curl localhost:8001/api/health        → 200, all 10 tools
-GET  /api/policies                    → [] (fresh schema DB proves connectivity)
-POST /api/policies  (smoke test doc)  → {"doc_id":1,"chunks":1}   ← embedded + persisted
-GET  /api/policies                    → [('Container Smoke Test', 1)]
+docker run ... shopiq
+  [entry] seeding policy documents...   → 6 docs, 19 chunks embedded
+  [entry] seeding retail data...        → products 4011, orders 19040, order_items 394389
+  [entry] starting ShopIQ API on :8000...
+
+curl :8000/            → the frontend HTML (index.html)
+curl :8000/api/health  → {"status":"ok","tools":[...10...]}
+curl :8000/api/policies→ 6 seeded docs
+POST :8000/api/chat "check the stock for SKU 21212"
+                       → "Current stock: 0 units (out of stock)"  (check_stock tool)
+UI walkthrough (:8000) → Chat answers with tool badges; Policies lists 6 docs;
+                         Governance trail logs action #1 check_stock executed
+docker restart shopiq  → skips seeding (idempotent), data intact
 ```
 
-**Note:** a fresh compose DB starts with the *schema only* — seed it with
-`docker compose run --rm backend python ingest_policies.py` (policies) and
-`load_sales.py data/raw/online_retail_II.xlsx` (retail data) when you want a
-full replica.
+**Deployment:** the whole product is one artifact. Ship `shopiq:single` to any
+host with Docker, map port 8000, point `.env` at a real
+`OPENROUTER_API_KEY`. A fresh volume self-seeds on first boot.

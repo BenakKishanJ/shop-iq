@@ -1,4 +1,7 @@
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Same-origin by default: the static build is served by the backend itself,
+// so /api/* is relative. Dev keeps the old default via frontend/.env.local
+// (NEXT_PUBLIC_API_URL is inlined at build time).
+const API = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export type PolicySection = { section: string; content: string };
 

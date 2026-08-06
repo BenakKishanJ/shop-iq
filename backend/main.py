@@ -10,11 +10,13 @@ for every other user. A worker thread keeps the API responsive. (The policy
 ingest path also makes blocking embedding calls.)
 """
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import agent
 import governance
@@ -176,3 +178,17 @@ def resolve(action_id: int, body: ResolveBody) -> dict:
             conn, action_id, body.approved, body.resolved_by)}
     finally:
         conn.close()
+
+
+# --------------------------------------------------------------------------
+# Static frontend (single-image deploy). The Next.js static export
+# (frontend/out) is served from the same process, so there is exactly one
+# artifact to run. API routes are declared above, so /api/* always wins over
+# this catch-all mount. Guarded by existence: a dev box without a build just
+# has no UI, and the API still works.
+# --------------------------------------------------------------------------
+FRONTEND_DIST = os.getenv("FRONTEND_DIST", "../frontend/out")
+if os.path.isdir(FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+else:
+    print(f"[main] FRONTEND_DIST not found ({FRONTEND_DIST}) — serving API only")
