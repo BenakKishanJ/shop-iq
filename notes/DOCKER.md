@@ -264,3 +264,70 @@ Port conflict `Bind for 0.0.0.0:5432 failed` → something already uses 5432. `d
 4. Create a *second* database container from the same image on port 5433 named `shopiq-test`. Then `docker stop` it and `docker rm` it. (Proves: one image → many containers, deletion is painless.)
 5. `docker volume ls` — see `shopiq_pgdata`. Explain why deleting the container won't lose our future data.
 6. Try `docker run hello-world` (a tiny image that prints a test message) — then `docker rmi hello-world` to clean up.
+
+---
+
+## 10. Dockerizing the ShopIQ Backend (Day 7)
+
+We don't just *run* a container — we now ship our own image. `backend/Dockerfile`
+bundles the FastAPI + MCP agent; `docker-compose.yml` wires it to a Postgres
+database. The image is **492 MB** (slim Python + the stack; no GPU, no browser).
+
+### The Dockerfile (read it top to bottom)
+
+```dockerfile
+FROM python:3.14-slim                      # small base, pinned major.minor
+ENV PYTHONUNBUFFERED=1 ...                 # sane Python defaults for logs
+WORKDIR /app
+COPY requirements.txt .                    # deps first → layer caching
+RUN pip install -r requirements.txt        # fast rebuilds when code changes
+RUN addgroup --system app && adduser ...   # non-root runtime user
+USER app
+COPY backend/ /app/                        # the source (single concern)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Design choices worth mentioning in an interview:
+
+- **Deps before code** — Docker layers are cached; changing a `.py` file
+  re-runs only the final `COPY`, not `pip install`.
+- **Non-root user** — the container needs no host privileges; it only talks to
+  Postgres and OpenRouter over the network.
+- **`--host 0.0.0.0`** — inside a container "localhost" is the container
+  itself; 0.0.0.0 makes uvicorn listen on all interfaces so the port
+  forward works.
+- **Build context = repo root** (the `-f backend/Dockerfile .` form) so the
+  image can `COPY requirements.txt` from one source of truth.
+
+### docker-compose.yml (two services, one concern each)
+
+- `db` — `pgvector/pgvector:pg16`, healthchecked with `pg_isready`, and
+  `schema.sql` auto-applied via `/docker-entrypoint-initdb.d/` on first boot.
+- `backend` — built from `backend/Dockerfile`, `depends_on: db: service_healthy`
+  (won't start until the DB is accepting connections), port `8000:8000`.
+- **Secrets** come from the repo-root `.env` via `${VAR:-default}` interpolation
+  — the compose file contains zero secrets. `POSTGRES_HOST: db` points at the
+  compose network's DB service, not `localhost`.
+
+```bash
+docker compose up --build          # start the stack
+curl localhost:8000/api/health     # {"status":"ok","tools":[...10...]}
+docker compose down                # stop (volume keeps the data)
+docker compose down -v             # stop AND wipe the DB volume
+```
+
+### Verified (this session)
+
+Built the image and ran the stack manually (no compose plugin on this box):
+
+```
+curl localhost:8001/api/health        → 200, all 10 tools
+GET  /api/policies                    → [] (fresh schema DB proves connectivity)
+POST /api/policies  (smoke test doc)  → {"doc_id":1,"chunks":1}   ← embedded + persisted
+GET  /api/policies                    → [('Container Smoke Test', 1)]
+```
+
+**Note:** a fresh compose DB starts with the *schema only* — seed it with
+`docker compose run --rm backend python ingest_policies.py` (policies) and
+`load_sales.py data/raw/online_retail_II.xlsx` (retail data) when you want a
+full replica.

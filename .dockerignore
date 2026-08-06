@@ -1,0 +1,14 @@
+# Keep the backend build context small and clean.
+.git
+.gitignore
+.venv
+node_modules
+.next
+frontend
+notes
+data
+*.md
+__pycache__
+*.pyc
+.env
+.env.*
