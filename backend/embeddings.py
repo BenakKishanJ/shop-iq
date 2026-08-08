@@ -31,6 +31,13 @@ def embed_texts(texts: list[str], model: str = EMBED_MODEL) -> list[list[float]]
     return [d["embedding"] for d in sorted(data, key=lambda d: d["index"])]
 
 
+def probe() -> dict:
+    """Liveness probe for the embedding model: embed one text, report dims."""
+    vecs = embed_texts(["ShopIQ health probe"])
+    return {"status": "ok", "model": EMBED_MODEL,
+            "vectors": len(vecs), "dims": len(vecs[0])}
+
+
 if __name__ == "__main__":
     vecs = embed_texts(["the quick brown fox", "jumps over the lazy dog"])
     print("vectors:", len(vecs), "| dims:", len(vecs[0]))

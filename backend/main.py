@@ -10,16 +10,19 @@ for every other user. A worker thread keeps the API responsive. (The policy
 ingest path also makes blocking embedding calls.)
 """
 import asyncio
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import agent
+import embeddings
 import governance
+import llm
 from db import get_conn
 from ingest_policies import parse_sections, upsert_document
 
@@ -58,6 +61,28 @@ def health() -> dict:
                                       "approve_action", "list_policies"]}
 
 
+@app.get("/api/health/llm")
+async def health_llm():
+    """Live probe of the chat model via OpenRouter."""
+    loop = asyncio.get_running_loop()
+    try:
+        return await loop.run_in_executor(executor, llm.probe)
+    except Exception as exc:
+        return JSONResponse(status_code=503,
+                            content={"status": "error", "detail": _readable(exc)})
+
+
+@app.get("/api/health/embeddings")
+async def health_embeddings():
+    """Live probe of the embedding model via OpenRouter."""
+    loop = asyncio.get_running_loop()
+    try:
+        return await loop.run_in_executor(executor, embeddings.probe)
+    except Exception as exc:
+        return JSONResponse(status_code=503,
+                            content={"status": "error", "detail": _readable(exc)})
+
+
 def _readable(exc: BaseException) -> str:
     """Unwrap ExceptionGroups (the MCP client re-raises as one) to the root."""
     if isinstance(exc, ExceptionGroup):
@@ -67,15 +92,42 @@ def _readable(exc: BaseException) -> str:
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
+    """Stream the agent run as SSE events so the UI can show verbose
+    thinking/tool activity live.
+
+    The agent loop makes blocking HTTP calls, so it runs on the threadpool.
+    Events hop from that thread back to the event loop via a thread-safe
+    queue, and the async generator below drains it into `data: {...}` frames.
+    """
     loop = asyncio.get_running_loop()
-    try:
-        result = await loop.run_in_executor(
-            executor,
-            lambda: asyncio.run(agent.run(req.question, model=req.model)),
-        )
-        return {"answer": result["answer"], "tool_uses": result["tool_uses"]}
-    except Exception as exc:
-        return JSONResponse(status_code=503, content={"detail": _readable(exc)})
+    queue: asyncio.Queue[dict] = asyncio.Queue()
+
+    def worker() -> None:
+        def on_event(ev: dict) -> None:
+            loop.call_soon_threadsafe(queue.put_nowait, ev)
+        try:
+            result = asyncio.run(agent.run(
+                req.question, model=req.model, on_event=on_event))
+            loop.call_soon_threadsafe(queue.put_nowait, {
+                "type": "done",
+                "answer": result["answer"],
+                "tool_uses": result["tool_uses"],
+            })
+        except BaseException as exc:  # noqa: BLE001 — bridge any failure to the stream
+            loop.call_soon_threadsafe(queue.put_nowait, {
+                "type": "error", "detail": _readable(exc)})
+
+    async def events():
+        while True:
+            ev = await queue.get()
+            yield f"data: {json.dumps(ev)}\n\n"
+            if ev["type"] in ("done", "error"):
+                return
+
+    executor.submit(worker)
+    return StreamingResponse(
+        events(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 # --------------------------------------------------------------------------

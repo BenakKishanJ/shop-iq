@@ -19,6 +19,7 @@ import {
 import ChatView, { CHAT_MODELS } from "@/components/chat";
 import PolicyLibrary from "@/components/policy-library";
 import Governance from "@/components/governance";
+import SystemStatus from "@/components/system-status";
 
 type View = "chat" | "policies" | "governance";
 type Theme = "light" | "dark";
@@ -115,6 +116,7 @@ export default function Shell() {
               </span>
               10 tools · audited
             </Badge>
+            <SystemStatus />
             {view === "chat" && (
               <Select value={model} onValueChange={(v) => v && setModel(v)}>
                 <SelectTrigger className="h-8 w-auto text-fluid-xs text-foreground md:w-48">

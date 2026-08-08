@@ -71,5 +71,19 @@ def complete(messages: list[dict], model: str = CHAT_MODEL,
                 max_tokens=max_tokens)["content"]
 
 
+def probe() -> dict:
+    """Liveness probe for the chat model: one tiny completion, report the
+    model OpenRouter actually routed to (matters for openrouter/free)."""
+    data = _post({
+        "model": CHAT_MODEL,
+        "messages": [{"role": "user", "content": "Reply with exactly: OK"}],
+        "temperature": 0.0,
+        "max_tokens": 10,
+    })
+    return {"status": "ok", "configured_model": CHAT_MODEL,
+            "model": data.get("model"),
+            "response": data["choices"][0]["message"]["content"]}
+
+
 if __name__ == "__main__":
     print(complete([{"role": "user", "content": "Reply with exactly: OK"}]))

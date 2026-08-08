@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 import sys
+from collections.abc import Callable
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.types import TextContent
@@ -54,12 +55,18 @@ def to_openai_tool(tool) -> dict:
 
 
 async def run(question: str, max_iterations: int = MAX_ITERATIONS,
-              model: str | None = None) -> dict:
+              model: str | None = None,
+              on_event: Callable[[dict], None] | None = None) -> dict:
     params = StdioServerParameters(
         command=sys.executable,
         args=[os.path.join(BACKEND, "mcp_server.py")],
         cwd=BACKEND,
     )
+
+    def emit(ev: dict) -> None:
+        if on_event:
+            on_event(ev)
+
     tool_uses = []
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
@@ -78,6 +85,14 @@ async def run(question: str, max_iterations: int = MAX_ITERATIONS,
                     return {"answer": msg.get("content") or "",
                             "tool_uses": tool_uses}
 
+                # Surface the model's own reasoning/thinking out loud as it
+                # prepares its next tool call (never the final answer, which
+                # has no tool_calls).
+                if msg.get("reasoning"):
+                    emit({"type": "think", "text": msg["reasoning"]})
+                if msg.get("content"):
+                    emit({"type": "think", "text": msg["content"]})
+
                 assistant_msg = {
                     "role": "assistant",
                     "content": msg.get("content"),
@@ -87,11 +102,15 @@ async def run(question: str, max_iterations: int = MAX_ITERATIONS,
                 for call in tool_calls:
                     fn = call["function"]
                     args = json.loads(fn["arguments"] or "{}")
+                    emit({"type": "tool_call", "name": fn["name"],
+                          "arguments": args})
                     result = await session.call_tool(fn["name"], args)
                     text = "\n".join(
                         b.text for b in result.content
                         if isinstance(b, TextContent)
                     )
+                    emit({"type": "tool_result", "name": fn["name"],
+                          "result": text[:300]})
                     tool_uses.append({"name": fn["name"], "arguments": args})
                     messages.append({
                         "role": "tool",

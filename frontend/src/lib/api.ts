@@ -73,3 +73,25 @@ export function resolveAction(
     body: JSON.stringify({ approved }),
   });
 }
+
+export type LlmHealth = {
+  status: string;
+  configured_model: string;
+  model: string | null;
+  response: string;
+};
+
+export type EmbeddingsHealth = {
+  status: string;
+  model: string;
+  vectors: number;
+  dims: number;
+};
+
+export function getLlmHealth(): Promise<LlmHealth> {
+  return json("/api/health/llm");
+}
+
+export function getEmbeddingsHealth(): Promise<EmbeddingsHealth> {
+  return json("/api/health/embeddings");
+}

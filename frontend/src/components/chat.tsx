@@ -29,11 +29,24 @@ const SUGGESTIONS = [
 
 type ToolUse = { name: string; arguments: Record<string, unknown> };
 
+type Step =
+  | { kind: "think"; text: string }
+  | { kind: "tool_call"; name: string; arguments: Record<string, unknown> }
+  | { kind: "tool_result"; name: string; result: string };
+
 type Message = {
   role: "user" | "assistant";
   content: string;
   toolUses: ToolUse[];
+  steps: Step[];
 };
+
+type ServerEvent =
+  | { type: "think"; text: string }
+  | { type: "tool_call"; name: string; arguments: Record<string, unknown> }
+  | { type: "tool_result"; name: string; result: string }
+  | { type: "done"; answer: string; tool_uses: ToolUse[] }
+  | { type: "error"; detail: string };
 
 function ToolRow({ uses }: { uses: ToolUse[] }) {
   if (uses.length === 0) return null;
@@ -47,6 +60,74 @@ function ToolRow({ uses }: { uses: ToolUse[] }) {
         >
           ⚙ {u.name}
         </Badge>
+      ))}
+    </div>
+  );
+}
+
+async function readStream(
+  res: Response,
+  onEvent: (ev: ServerEvent) => void
+): Promise<void> {
+  if (!res.body) throw new Error("No response body");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      for (const line of frame.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        try {
+          onEvent(JSON.parse(raw) as ServerEvent);
+        } catch {
+          /* skip malformed frame */
+        }
+      }
+    }
+  }
+}
+
+function StepLine({ step }: { step: Step }) {
+  if (step.kind === "think") {
+    return (
+      <div className="flex gap-2 text-fluid-xs leading-relaxed text-muted-foreground">
+        <span className="shrink-0 select-none text-brand/70">⟡</span>
+        <span className="whitespace-pre-wrap italic">{step.text}</span>
+      </div>
+    );
+  }
+  if (step.kind === "tool_call") {
+    return (
+      <div className="flex gap-2 font-mono text-fluid-xs text-foreground">
+        <span className="shrink-0 select-none text-brand">→</span>
+        <span className="break-all">
+          {step.name}({JSON.stringify(step.arguments)})
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex gap-2 font-mono text-fluid-xs text-muted-foreground">
+      <span className="shrink-0 select-none text-brand/60">↳</span>
+      <span className="break-all">{step.result}</span>
+    </div>
+  );
+}
+
+function StepsBody({ steps }: { steps: Step[] }) {
+  if (steps.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-muted/40 p-2.5">
+      {steps.map((s, i) => (
+        <StepLine key={i} step={s} />
       ))}
     </div>
   );
@@ -102,6 +183,25 @@ function AssistantAvatar() {
   );
 }
 
+function LiveSteps({ steps }: { steps: Step[] }) {
+  return (
+    <div className="flex animate-message-in items-start gap-3">
+      <AssistantAvatar />
+      <Card className="flex-1 rounded-2xl rounded-tl-md border-border bg-card/70 px-4 py-3.5 shadow-sm backdrop-blur-xl md:px-5 md:py-4">
+        <StepsBody steps={steps} />
+        <div className="mt-2 flex items-center gap-2 text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-brand" />
+            <span className="thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-brand/60" />
+            <span className="thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-brand/30" />
+          </span>
+          <span className="text-fluid-xs font-medium">Consulting tools…</span>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-2 py-8 text-center">
@@ -136,30 +236,73 @@ export default function ChatView({ model }: { model: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [steps, setSteps] = useState<Step[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, steps]);
 
   async function send(text: string) {
     const question = text.trim();
     if (!question || loading) return;
-    setMessages((m) => [...m, { role: "user", content: question, toolUses: [] }]);
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: question, toolUses: [], steps: [] },
+    ]);
     setInput("");
     setLoading(true);
+    setSteps([]);
+    const live: Step[] = [];
     try {
       const res = await fetch(`${API}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, model }),
       });
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-      const data = await res.json();
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: data.answer, toolUses: data.tool_uses ?? [] },
-      ]);
+      if (!res.ok) {
+        let detail = `API error ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body.detail) detail = body.detail;
+        } catch {
+          /* keep status */
+        }
+        throw new Error(detail);
+      }
+      await readStream(res, (ev) => {
+        if (ev.type === "think") {
+          live.push({ kind: "think", text: ev.text });
+        } else if (ev.type === "tool_call") {
+          live.push({ kind: "tool_call", name: ev.name, arguments: ev.arguments });
+        } else if (ev.type === "tool_result") {
+          live.push({ kind: "tool_result", name: ev.name, result: ev.result });
+        } else if (ev.type === "done") {
+          const finished = [...live];
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              content: ev.answer,
+              toolUses: ev.tool_uses ?? [],
+              steps: finished,
+            },
+          ]);
+          return;
+        } else if (ev.type === "error") {
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              content: `Something went wrong: ${ev.detail}`,
+              toolUses: [],
+              steps: [...live],
+            },
+          ]);
+          return;
+        }
+        setSteps([...live]);
+      });
     } catch (err) {
       setMessages((m) => [
         ...m,
@@ -167,10 +310,12 @@ export default function ChatView({ model }: { model: string }) {
           role: "assistant",
           content: `Something went wrong: ${(err as Error).message}`,
           toolUses: [],
+          steps: [],
         },
       ]);
     } finally {
       setLoading(false);
+      setSteps([]);
     }
   }
 
@@ -193,13 +338,26 @@ export default function ChatView({ model }: { model: string }) {
                   <div key={i} className="flex animate-message-in items-start gap-3">
                     <AssistantAvatar />
                     <Card className="flex-1 rounded-2xl rounded-tl-md border-border bg-card/70 px-4 py-3.5 shadow-sm backdrop-blur-xl md:px-5 md:py-4">
+                      {msg.steps.length > 0 && (
+                        <details className="group mb-2">
+                          <summary className="cursor-pointer select-none text-fluid-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+                            <span className="mr-1.5 inline-block text-fluid-xs transition-transform group-open:rotate-90">
+                              ▶
+                            </span>
+                            agent steps · {msg.steps.length}
+                          </summary>
+                          <div className="mt-2">
+                            <StepsBody steps={msg.steps} />
+                          </div>
+                        </details>
+                      )}
                       <ToolRow uses={msg.toolUses} />
                       <RichText content={msg.content} />
                     </Card>
                   </div>
                 )
               )}
-              {loading && <Thinking />}
+              {loading && (steps.length === 0 ? <Thinking /> : <LiveSteps steps={steps} />)}
               <div ref={bottomRef} />
             </div>
           </ScrollArea>
