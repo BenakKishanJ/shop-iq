@@ -14,7 +14,7 @@ import { parseCitations } from "@/lib/parse-citations";
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export const CHAT_MODELS = [
-  { value: "openai/gpt-oss-20b:free", label: "GPT-OSS 20B · free" },
+  { value: "openrouter/free", label: "Free model (auto-routed)" },
   { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
   { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
 ];

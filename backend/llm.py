@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CHAT_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-20b:free")
+CHAT_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2.0  # seconds, doubles each attempt
