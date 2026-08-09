@@ -61,6 +61,12 @@ async def run(question: str, max_iterations: int = MAX_ITERATIONS,
         command=sys.executable,
         args=[os.path.join(BACKEND, "mcp_server.py")],
         cwd=BACKEND,
+        # The mcp SDK only inherits a small whitelist of env vars by default,
+        # dropping OPENROUTER_API_KEY + friends. The child MCP server needs
+        # them for embeddings/LLM calls, so pass the full environment through
+        # (on a dev box load_dotenv() would otherwise re-find .env; in the
+        # container there is no .env file and the child ran keyless → 401).
+        env=os.environ.copy(),
     )
 
     def emit(ev: dict) -> None:
