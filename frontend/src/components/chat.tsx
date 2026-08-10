@@ -15,8 +15,22 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export const CHAT_MODELS = [
   { value: "openrouter/free", label: "Free model (auto-routed)" },
+  { value: "openai/gpt-oss-20b:free", label: "GPT-OSS 20B · free" },
+  {
+    value: "nvidia/nemotron-3-ultra-550b-a55b:free",
+    label: "Nemotron Ultra 550B · free",
+  },
   { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
   { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
+];
+
+export const EMBED_MODELS = [
+  {
+    value: "nvidia/nemotron-3-embed-1b:free",
+    label: "Nemotron Embed 1B · 2048d (indexed)",
+  },
+  { value: "openai/text-embedding-3-small", label: "text-embedding-3-small · 1536d" },
+  { value: "BAAI/bge-m3", label: "BGE-M3 · 1024d" },
 ];
 
 const SUGGESTIONS = [
@@ -232,7 +246,13 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   );
 }
 
-export default function ChatView({ model }: { model: string }) {
+export default function ChatView({
+  model,
+  embedModel,
+}: {
+  model: string;
+  embedModel: string;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -258,7 +278,7 @@ export default function ChatView({ model }: { model: string }) {
       const res = await fetch(`${API}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, model }),
+        body: JSON.stringify({ question, model, embed_model: embedModel }),
       });
       if (!res.ok) {
         let detail = `API error ${res.status}`;

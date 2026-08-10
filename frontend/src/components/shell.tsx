@@ -16,7 +16,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import ChatView, { CHAT_MODELS } from "@/components/chat";
+import ChatView, { CHAT_MODELS, EMBED_MODELS } from "@/components/chat";
 import PolicyLibrary from "@/components/policy-library";
 import Governance from "@/components/governance";
 import SystemStatus from "@/components/system-status";
@@ -49,6 +49,7 @@ function ThemeToggle({
 export default function Shell() {
   const [view, setView] = useState<View>("chat");
   const [model, setModel] = useState(CHAT_MODELS[0].value);
+  const [embedModel, setEmbedModel] = useState(EMBED_MODELS[0].value);
   const [theme, setTheme] = useState<Theme>(() =>
     typeof window === "undefined"
       ? "dark"
@@ -118,18 +119,35 @@ export default function Shell() {
             </Badge>
             <SystemStatus />
             {view === "chat" && (
-              <Select value={model} onValueChange={(v) => v && setModel(v)}>
-                <SelectTrigger className="h-8 w-auto text-fluid-xs text-foreground md:w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CHAT_MODELS.map((m) => (
-                    <SelectItem key={m.value} value={m.value} className="text-fluid-xs">
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-1.5">
+                <Select value={embedModel} onValueChange={(v) => v && setEmbedModel(v)}>
+                  <SelectTrigger
+                    className="h-8 w-auto text-fluid-xs text-foreground md:w-44"
+                    title="Embedding model"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EMBED_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value} className="text-fluid-xs">
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={model} onValueChange={(v) => v && setModel(v)}>
+                  <SelectTrigger className="h-8 w-auto text-fluid-xs text-foreground md:w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CHAT_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value} className="text-fluid-xs">
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
@@ -137,7 +155,7 @@ export default function Shell() {
       </header>
 
       <main className="relative z-10 flex min-h-0 flex-1 flex-col">
-        {view === "chat" && <ChatView model={model} />}
+        {view === "chat" && <ChatView model={model} embedModel={embedModel} />}
         {view === "policies" && <PolicyLibrary />}
         {view === "governance" && <Governance />}
       </main>

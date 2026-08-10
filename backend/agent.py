@@ -56,17 +56,22 @@ def to_openai_tool(tool) -> dict:
 
 async def run(question: str, max_iterations: int = MAX_ITERATIONS,
               model: str | None = None,
+              embed_model: str | None = None,
               on_event: Callable[[dict], None] | None = None) -> dict:
+    # The mcp SDK only inherits a small whitelist of env vars by default,
+    # dropping OPENROUTER_API_KEY + friends. The child MCP server needs them
+    # for embeddings/LLM calls, so pass the full environment through (on a dev
+    # box load_dotenv() would otherwise re-find .env; in the container there is
+    # no .env file and the child ran keyless → 401). The selected embedding
+    # model rides along as an EMBEDDING_MODEL override.
+    child_env = os.environ.copy()
+    if embed_model:
+        child_env["EMBEDDING_MODEL"] = embed_model
     params = StdioServerParameters(
         command=sys.executable,
         args=[os.path.join(BACKEND, "mcp_server.py")],
         cwd=BACKEND,
-        # The mcp SDK only inherits a small whitelist of env vars by default,
-        # dropping OPENROUTER_API_KEY + friends. The child MCP server needs
-        # them for embeddings/LLM calls, so pass the full environment through
-        # (on a dev box load_dotenv() would otherwise re-find .env; in the
-        # container there is no .env file and the child ran keyless → 401).
-        env=os.environ.copy(),
+        env=child_env,
     )
 
     def emit(ev: dict) -> None:

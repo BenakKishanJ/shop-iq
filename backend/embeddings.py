@@ -10,12 +10,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-EMBED_MODEL = os.getenv("EMBEDDING_MODEL", "nvidia/llama-nemotron-embed-vl-1b-v2:free")
+EMBED_MODEL = os.getenv("EMBEDDING_MODEL", "nvidia/nemotron-3-embed-1b:free")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
 
-def embed_texts(texts: list[str], model: str = EMBED_MODEL) -> list[list[float]]:
-    """Embed a list of texts; returns a list of vectors (same order as input)."""
+def embed_texts(texts: list[str], model: str | None = None) -> list[list[float]]:
+    """Embed a list of texts; returns a list of vectors (same order as input).
+
+    Reads the model from the environment at call time so a per-run override
+    (e.g. EMBEDDING_MODEL set in the MCP child process env) takes effect.
+    """
+    model = model or os.getenv("EMBEDDING_MODEL") or EMBED_MODEL
     resp = requests.post(
         f"{BASE_URL}/embeddings",
         headers={

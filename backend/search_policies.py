@@ -16,6 +16,15 @@ def search(query: str, k: int = 5) -> list[dict]:
     conn = get_conn()
     try:
         with conn.cursor() as cur:
+            cur.execute("SELECT vector_dims(embedding) FROM document_chunks LIMIT 1")
+            indexed_dims = cur.fetchone()
+            if indexed_dims and indexed_dims[0] != len(query_vec):
+                raise RuntimeError(
+                    f"Embedding dimension mismatch: {len(query_vec)}d query vs "
+                    f"{indexed_dims[0]}d indexed policies. Policies were indexed with "
+                    f"nvidia/nemotron-3-embed-1b:free (2048d); switch back to that "
+                    f"model or re-ingest the policies with the selected one."
+                )
             cur.execute(
                 """SELECT p.title, c.section_label, c.content,
                           (c.embedding <=> %s::vector) AS dist

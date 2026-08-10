@@ -40,6 +40,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     question: str
     model: str | None = None
+    embed_model: str | None = None
 
 
 class PolicyCreate(BaseModel):
@@ -107,7 +108,8 @@ async def chat(req: ChatRequest):
             loop.call_soon_threadsafe(queue.put_nowait, ev)
         try:
             result = asyncio.run(agent.run(
-                req.question, model=req.model, on_event=on_event))
+                req.question, model=req.model,
+                embed_model=req.embed_model, on_event=on_event))
             loop.call_soon_threadsafe(queue.put_nowait, {
                 "type": "done",
                 "answer": result["answer"],
