@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS products (
     sku            TEXT UNIQUE NOT NULL,
     description    TEXT,
     unit_price     NUMERIC(10,2),
-    initial_stock  INT DEFAULT 500,          -- assumption documented in PRD
+    initial_stock  INT DEFAULT 20000,          -- assumption documented in PRD
+                                              -- (kept high so most SKUs stay in stock)
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

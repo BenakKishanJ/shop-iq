@@ -11,7 +11,10 @@ import pandas as pd
 from db import apply_schema, get_conn
 
 DEFAULT_SOURCE = "data/raw/online_retail_II.xlsx"
-DEFAULT_INITIAL_STOCK = 500
+# Large enough that a stockout actually means the product sold out: the
+# heaviest seller moves ~58k units, so 20k keeps the vast majority positive
+# while still showing meaningful sell-through pressure on the top movers.
+DEFAULT_INITIAL_STOCK = 20000
 
 # These are accounting/adjustment entries, not real products
 NON_PRODUCT_PREFIXES = ("ADJUST", "BANK CHARGES", "POSTAGE", "DOTCOM POSTAGE",
@@ -61,8 +64,9 @@ def load(df: pd.DataFrame, initial_stock: int = DEFAULT_INITIAL_STOCK) -> dict:
                     """INSERT INTO products (sku, description, unit_price, initial_stock)
                        VALUES (%s, %s, %s, %s)
                        ON CONFLICT (sku) DO UPDATE
-                         SET description = EXCLUDED.description,
-                             unit_price  = EXCLUDED.unit_price""",
+                         SET description   = EXCLUDED.description,
+                             unit_price    = EXCLUDED.unit_price,
+                             initial_stock = EXCLUDED.initial_stock""",
                     [(r["StockCode"], r["Description"], float(r["Price"]),
                       initial_stock)
                      for r in products.to_dict("records")],
