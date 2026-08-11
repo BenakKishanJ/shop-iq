@@ -5,10 +5,7 @@ your sales history, and your store policies, then answers questions in plain
 language — and when something needs doing (like restocking a fast-moving item),
 it proposes the action and routes it through a human approval trail.
 
-> Screenshots are pending — each feature section links to a placeholder image
-> under `docs/screenshots/`. Drop a screenshot there and update the path.
-
-![ShopIQ chat tab](docs/screenshots/chat.png)
+![ShopIQ chat tab](docs/screenshots/shopiq_home.png)
 
 ---
 
@@ -20,8 +17,8 @@ ShopIQ combines three things a store assistant needs at the counter:
   trends, top sellers, or whether a product exists, and get an answer grounded
   in your actual database.
 - **Policy-aware retrieval (RAG)** — store policies (returns, pricing, safety,
-  privacy) are embedded and searchable, so the agent answers *according to the
-  rules* and cites the exact policy section it followed.
+  privacy) are embedded and searchable, so the agent answers _according to the
+  rules_ and cites the exact policy section it followed.
 - **Governed actions** — when the agent decides to act (e.g. reorder a product
   that's low on stock), the action is logged and can be routed to a manager
   for approval before it's executed — an audit trail for every decision.
@@ -30,17 +27,18 @@ ShopIQ combines three things a store assistant needs at the counter:
 
 The main tab. Ask anything in natural language:
 
-- *"Are we low on the top-selling product?"*
-- *"Can customers return opened electronics?"*
-- *"We're out of the white hanging heart t-light holder, order more and tell
-  the team."*
+- _"Are we low on the top-selling product?"_
+- _"Can customers return opened electronics?"_
+- _"We're out of the white hanging heart t-light holder, order more and tell
+  the team."_
 
 The agent streams its reasoning live, shows which tools it used, and quotes the
 exact policy section when the answer comes from a document. You can switch the
 underlying chat model and the embedding model used for policy search from the
 header.
 
-![Chat tab — ask questions and watch tool use stream in](docs/screenshots/chat.png)
+![Chat tab — ask questions and watch tool use stream in](docs/screenshots/shopiq_chat.png)
+![Chat tab — ask questions and watch tool use stream in](docs/screenshots/shopiq_thinking.png)
 
 ### Policy Library
 
@@ -49,7 +47,7 @@ searchable sections, and add new policies as plain text (headings like
 `## Section name` become citable sections). New entries are embedded and
 searchable immediately.
 
-![Policy library tab — view and add policies](docs/screenshots/policies.png)
+![Policy library tab — view and add policies](docs/screenshots/shopiq_policies.png)
 
 ### Governance
 
@@ -58,7 +56,7 @@ with what arguments, what result came back, and its reasoning. Pending actions
 (like reorder suggestions) can be **approved** or **rejected** here, and every
 decision is recorded with who resolved it and when.
 
-![Governance tab — review and approve agent actions](docs/screenshots/governance.png)
+![Governance tab — review and approve agent actions](docs/screenshots/shopiq_governance.png)
 
 ---
 
@@ -92,14 +90,14 @@ You  ──▶  FastAPI ──▶  Agent loop ──▶  MCP tools
 
 ## Tech stack
 
-| Layer      | Technology |
-|------------|------------|
-| Backend    | Python 3.14, FastAPI, uvicorn |
-| Agent      | MCP (`mcp` SDK), threaded tool loop |
+| Layer            | Technology                                              |
+| ---------------- | ------------------------------------------------------- |
+| Backend          | Python 3.14, FastAPI, uvicorn                           |
+| Agent            | MCP (`mcp` SDK), threaded tool loop                     |
 | LLM / Embeddings | OpenRouter (any Chat Completions / Embeddings endpoint) |
-| Database   | PostgreSQL 17 + `pgvector` (embedded or managed) |
-| Frontend   | Next.js (static export), React, Tailwind, shadcn/ui |
-| Notifications | Telegram bot (optional) |
+| Database         | PostgreSQL 17 + `pgvector` (embedded or managed)        |
+| Frontend         | Next.js (static export), React, Tailwind, shadcn/ui     |
+| Notifications    | Telegram bot (optional)                                 |
 
 ## Quick start
 
@@ -140,15 +138,15 @@ For the frontend dev server to reach the API, set `NEXT_PUBLIC_API_URL` in
 
 Copy `.env.example` to `.env` and fill in your values.
 
-| Variable | Purpose |
-|----------|---------|
-| `OPENROUTER_API_KEY` | Key for the chat + embedding models |
-| `OPENROUTER_BASE_URL` | OpenAI-compatible endpoint (OpenRouter by default) |
-| `OPENROUTER_MODEL` | Default chat model |
-| `EMBEDDING_MODEL` / `EMBEDDING_DIM` | Embedding model used for policy search |
-| `POSTGRES_*` | Connection details (embedded defaults, or a managed DB) |
-| `POSTGRES_SSLMODE` | Set `require` for managed hosts that mandate TLS |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Optional agent notifications |
+| Variable                                  | Purpose                                                 |
+| ----------------------------------------- | ------------------------------------------------------- |
+| `OPENROUTER_API_KEY`                      | Key for the chat + embedding models                     |
+| `OPENROUTER_BASE_URL`                     | OpenAI-compatible endpoint (OpenRouter by default)      |
+| `OPENROUTER_MODEL`                        | Default chat model                                      |
+| `EMBEDDING_MODEL` / `EMBEDDING_DIM`       | Embedding model used for policy search                  |
+| `POSTGRES_*`                              | Connection details (embedded defaults, or a managed DB) |
+| `POSTGRES_SSLMODE`                        | Set `require` for managed hosts that mandate TLS        |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Optional agent notifications                            |
 
 > The policy index must be built (or re-built) with the same embedding model
 > used for queries — switching models changes the vector dimensions and
@@ -166,15 +164,15 @@ work against a brand-new managed Postgres too.
 
 ## API
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/health` | Service + tool roster |
-| `GET /api/health/llm` | Live probe of the chat model |
-| `GET /api/health/embeddings` | Live probe of the embedding model + index dimensions |
-| `POST /api/chat` | Streaming agent run (SSE): `{question, model?, embed_model?}` |
-| `GET/POST /api/policies` | List or add policy documents |
-| `GET /api/actions` | Governance trail |
-| `POST /api/actions/{id}/resolve` | Approve / reject an action |
+| Endpoint                         | Description                                                   |
+| -------------------------------- | ------------------------------------------------------------- |
+| `GET /api/health`                | Service + tool roster                                         |
+| `GET /api/health/llm`            | Live probe of the chat model                                  |
+| `GET /api/health/embeddings`     | Live probe of the embedding model + index dimensions          |
+| `POST /api/chat`                 | Streaming agent run (SSE): `{question, model?, embed_model?}` |
+| `GET/POST /api/policies`         | List or add policy documents                                  |
+| `GET /api/actions`               | Governance trail                                              |
+| `POST /api/actions/{id}/resolve` | Approve / reject an action                                    |
 
 ## Deployment
 
