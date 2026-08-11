@@ -10,7 +10,7 @@ Usage:
 from typing import Iterable
 import re
 import requests
-from db import get_conn
+from db import apply_schema, get_conn
 from embeddings import embed_texts
 from policy_seed import SEED_DOCS
 
@@ -86,6 +86,8 @@ def upsert_document(doc: dict, conn) -> dict:
 
 def main():
     conn = get_conn()
+    apply_schema(conn)
+    conn.commit()
     results = []
     try:
         for doc in SEED_DOCS:

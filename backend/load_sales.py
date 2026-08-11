@@ -8,7 +8,7 @@ Usage:
 """
 import sys
 import pandas as pd
-from db import get_conn
+from db import apply_schema, get_conn
 
 DEFAULT_SOURCE = "data/raw/online_retail_II.xlsx"
 DEFAULT_INITIAL_STOCK = 500
@@ -48,6 +48,8 @@ def clean_sales(df: pd.DataFrame) -> pd.DataFrame:
 def load(df: pd.DataFrame, initial_stock: int = DEFAULT_INITIAL_STOCK) -> dict:
     """Upsert cleaned sales data into Postgres and refresh the stock view."""
     conn = get_conn()
+    apply_schema(conn)
+    conn.commit()
     stats = {}
     try:
         with conn.transaction():
