@@ -12,6 +12,9 @@ __pycache__/
 # data files (large / reseedable)
 data/
 
+# local documentation & scratch notes (kept out of version control)
+notes/
+
 # node
 node_modules/
 .next/
