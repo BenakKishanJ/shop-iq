@@ -1,0 +1,2 @@
+Retail dataset lives here at runtime (data/raw/online_retail_II.xlsx).
+It stays out of git (size/reseedable); this placeholder keeps the Docker build context valid when building from the repo on Render. The container entrypoint skips the retail seed when the xlsx is absent (data is pre-seeded into managed Postgres instead).
